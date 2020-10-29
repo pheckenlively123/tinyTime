@@ -1,0 +1,15 @@
+<config>
+  <!-- Location where time logs will be written. -->
+  <logging>logs</logging>
+  <!-- File where we store the current task with the time it started. -->
+  <taskFile>current.json</taskFile>
+  <!-- Prefix for the file where time logs are written. -->
+  <logPrefix>tinyTask</logPrefix>
+  <!-- regexes for items where HH:MM output is needed. -->
+  <specialTasks>
+    <taskItem>^INC</taskItem>
+    <taskItem>^CRQ</taskItem>
+    <taskItem>^PKE</taskItem>
+    <taskItem>^PBI</taskItem>
+  </specialTasks>
+</config>
