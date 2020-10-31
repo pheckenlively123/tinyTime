@@ -13,7 +13,8 @@ use JSON;
 
 my $usage;
 my $opts = {};
-my $specalTasks;
+my $specialTasks;
+my $ignoreTasks;
 my $logDir;
 my $taskFile;
 my $logPrefix;
@@ -42,10 +43,6 @@ foreach my $op ( qw / c / ) {
 	warn "Missing required parameter: $op\n";
 	confess $usage;
     }
-}
-
-if ( !defined ( $opts->{r} ) && !defined ( $opts->{t} ) ) {
-    confess "Both -r and -t are missing.  We need one of them.\n\n" . $usage;
 }
 
 ### Subroutine Section ###
@@ -85,11 +82,31 @@ sub parseConfig {
     # Get the taskItem nodes.
     my @taskItemNodeList = $dom->findnodes ( '//specialTasks/taskItem' );
     
-    $specalTasks = [];
+    $specialTasks = [];
     foreach my $taskNode ( @taskItemNodeList ) {
 	my $task = $taskNode->textContent ();
-	push ( @{$specalTasks}, $task );
+	push ( @{$specialTasks}, $task );
     }
+
+    # Get the ignoreItem nodes.
+    my @ignoreItemNodeList = $dom->findnodes ( '//ignoreTasks/ignoreItem' );
+
+    $ignoreTasks = [];
+    foreach my $ignoreNode ( @ignoreItemNodeList ) {
+	my $ignore = $ignoreNode->textContent ();
+	push ( @{$ignoreTasks}, $ignore );
+    }
+}
+
+sub modTime {
+    my $diffTime = shift;
+    my $divider = shift;
+
+    my $remainder = $diffTime % $divider;
+    my $diveTime = $diffTime - $remainder;
+    my $retTime = $diveTime / $divider;
+
+    return $retTime, $remainder;
 }
 
 sub logTime {
@@ -108,40 +125,33 @@ sub logTime {
     
     if ( $diffTime > 86400 ) {
 	# We have been on this task for more than 24 hours...(Arg!)
-	my $remainder = $diffTime % 86400;
-	my $dayTime = $diffTime - $remainder;
-	$days = $dayTime / 86400;
-	$diffTime = $remainder;
+	( $days, $diffTime ) = modTime ( $diffTime, 86400 );
     }
 
     if ( $diffTime > 3600 ) {
 	# We have been working for more than an hour.
-	my $remainder = $diffTime % 3600;
-	my $hourTime = $diffTime - $remainder;
-	$hours = $hourTime / 3600;
-	$diffTime = $remainder;
+	( $hours, $diffTime ) = modTime ( $diffTime, 3600 );
     }
 
     if ( $diffTime > 60 ) {
 	# We have been working for more than a minute.
-	my $remainder = $diffTime % 60;
-	my $minuteTime = $diffTime - $remainder;
-	$minutes = $minuteTime / 60;
-	$diffTime = $remainder;
+	( $minutes, $diffTime ) = modTime ( $diffTime, 60 );
     }
 
     if ( $diffTime > 0 ) {
 	$seconds = $diffTime;
     }
     
-    my $logLine = sprintf "%s\t%02d:%02d:%02d:%02d", $taskName, $days, $hours,
-	$minutes, $seconds;
-
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
 	localtime(time());
 
     $mon++;
     $year += 1900;
+
+    my $logLine = sprintf
+	"%04d-%02d-%02dT%02d:%02d:%02d\t%s\t%02d:%02d:%02d:%02d",
+	$year, $mon, $mday, $hour, $min, $sec, $taskName, $days, $hours,
+	$minutes, $seconds;
 
     my $logFile = sprintf "%s/%s-%04d:%02d:%02d", $logDir, $logPrefix,
 	$year, $mon, $mday;
@@ -211,6 +221,114 @@ sub trackTask {
     }
 }
 
+sub printReport {
+
+    my $rep = {};
+    my $logFile = sprintf "%s/%s", $logDir, $opts->{s};
+    my $grandTotal = 0;
+
+    open ( my $RD, '<', $logFile )
+	or confess "Failed to open $logFile for read: $!\n";
+
+    while ( my $line = <$RD> ) {
+	chomp ( $line );
+
+	my ( $junk, $task, $timeRec ) = split ( /\t/, $line );
+	my ( $day, $hour, $min, $sec ) = split ( ':', $timeRec );
+
+	if ( !defined ( $rep->{$task} ) ) {
+	    $rep->{$task} = 0;
+	}
+
+	# Convert all the time into seconds.
+	$rep->{$task} += $day * 86400;
+	$rep->{$task} += $hour * 3600;
+	$rep->{$task} += $min * 60;
+	$rep->{$task} += $sec;
+    }
+
+    close ( $RD )
+	or confess "Failed to close $logFile from read: $!\n";
+
+    print "\nTask Time:\n\n";
+    
+    foreach my $task ( sort keys %{$rep} ) {
+	my $printFlag = 1;
+	my $totalTask = 1;
+
+	foreach my $ignore ( @{$ignoreTasks} ) {
+	    if ( $task eq $ignore ) {
+		$totalTask = 0;
+		last;
+	    }
+	}
+
+	if ( $totalTask ) {
+	    $grandTotal += $rep->{$task};
+	}
+
+	foreach my $special ( @{$specialTasks} ) {
+	    if ( $task =~ /$special/ ) {
+		printSpecial ( $task, $rep->{$task} );
+		$printFlag = 0;
+		last;
+	    }
+	}
+
+	if ( $printFlag ) {
+	    printNormal ( $task, $rep->{$task} );
+	}
+    }
+
+    print "\n";
+
+    printNormal ( "Total:", $grandTotal );
+    printSpecial ( "Total:", $grandTotal );
+}
+
+sub printSpecial {
+    my $task = shift;
+    my $timeVal = shift;
+
+    my $diffTime = $timeVal;
+
+    my $days = 0;
+    my $hours = 0;
+    my $minutes = 0;
+    my $seconds = 0;
+
+    if ( $diffTime > 86400 ) {
+	# We have been on this task for more than 24 hours...(Arg!)
+	( $days, $diffTime ) = modTime ( $diffTime, 86400 );
+    }
+
+    if ( $diffTime > 3600 ) {
+	# We have been working for more than an hour.
+	( $hours, $diffTime ) = modTime ( $diffTime, 3600 );
+    }
+
+    if ( $diffTime > 60 ) {
+	# We have been working for more than a minute.
+	( $minutes, $diffTime ) = modTime ( $diffTime, 60 );
+    }
+
+    if ( $diffTime > 0 ) {
+	$seconds = $diffTime;
+    }
+
+    printf "%s\t%02dd %02dh %02dm %02ds\n", $task, $days, $hours,
+	$minutes, $seconds;
+}
+
+sub printNormal {
+    my $task = shift;
+    my $timeVal = shift;
+
+    $timeVal = $timeVal / 3600;
+
+    printf "%s\t%s\n", $task, $timeVal;
+}
+
 ### Main Routine ###
 
 parseConfig ();
@@ -222,6 +340,7 @@ if ( defined ( $opts->{t} ) ) {
 
 if ( defined ( $opts->{s} ) ) {
     # Print the report for a specific log file.
+    printReport ();
 }
 
 exit ( 0 );
