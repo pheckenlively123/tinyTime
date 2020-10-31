@@ -12,4 +12,9 @@
     <taskItem>^PKE</taskItem>
     <taskItem>^PBI</taskItem>
   </specialTasks>
+  <!-- Tasks to exclude from time totals. -->
+  <ignoreTasks>
+    <ignoreItem>break</ignoreItem>
+    <ignoreItem>lunch</ignoreItem>
+  </ignoreTasks>
 </config>
