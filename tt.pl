@@ -22,16 +22,15 @@ my $logPrefix;
 
 $usage =<<"EOF";
 Usage:
-    tt -c CONFIG [-r] [-t TASK] [-s LOGFILE] [-h]
+    tt -c CONFIG [-t TASK] [-s LOGFILE] [-h]
 Arguments:
-    -c CONFIG  XML config file.
-    -r         Report mode.
-    -t TASK    Track a new task.
-    -s LOGFILE Sum up time for tasks in a log file.
-    -h         Print usage, and exit.
+    -c CONFIG    XML config file.
+    [-t TASK]    Track a new task.
+    [-s LOGFILE] Sum up time for tasks in a log file.
+    -h           Print usage, and exit.
 EOF
     
-getopts ( 'rhc:t:s:', $opts );
+getopts ( 'hc:t:s:', $opts );
 
 if ( defined ( $opts->{h} ) ) {
     print $usage;
@@ -100,6 +99,60 @@ sub logTime {
     # Task time is the time the task started.  We need to check the
     # current time and calculate the duration for the log from that.
 
+    my $diffTime = time () - $taskTime;
+
+    my $days = 0;
+    my $hours = 0;
+    my $minutes = 0;
+    my $seconds = 0;
+    
+    if ( $diffTime > 86400 ) {
+	# We have been on this task for more than 24 hours...(Arg!)
+	my $remainder = $diffTime % 86400;
+	my $dayTime = $diffTime - $remainder;
+	$days = $dayTime / 86400;
+	$diffTime = $remainder;
+    }
+
+    if ( $diffTime > 3600 ) {
+	# We have been working for more than an hour.
+	my $remainder = $diffTime % 3600;
+	my $hourTime = $diffTime - $remainder;
+	$hours = $hourTime / 3600;
+	$diffTime = $remainder;
+    }
+
+    if ( $diffTime > 60 ) {
+	# We have been working for more than a minute.
+	my $remainder = $diffTime % 60;
+	my $minuteTime = $diffTime - $remainder;
+	$minutes = $minuteTime / 60;
+	$diffTime = $remainder;
+    }
+
+    if ( $diffTime > 0 ) {
+	$seconds = $diffTime;
+    }
+    
+    my $logLine = sprintf "%s\t%02d:%02d:%02d:%02d", $taskName, $days, $hours,
+	$minutes, $seconds;
+
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+	localtime(time());
+
+    $mon++;
+    $year += 1900;
+
+    my $logFile = sprintf "%s/%s-%04d:%02d:%02d", $logDir, $logPrefix,
+	$year, $mon, $mday;
+
+    open ( my $WT, '>>', $logFile )
+	or confess "Failed to open $logFile for append: $!\n";
+
+    print {$WT} "$logLine\n";
+
+    close ( $WT )
+	or confess "Failed to close $logFile from append: $!\n";
 }
 
 sub trackTask {
@@ -165,10 +218,6 @@ parseConfig ();
 if ( defined ( $opts->{t} ) ) {
     # We are tracking a task
     trackTask ();
-}
-
-if ( defined ( $opts->{r} ) ) {
-    # Print the report.
 }
 
 if ( defined ( $opts->{s} ) ) {
