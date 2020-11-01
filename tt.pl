@@ -109,16 +109,10 @@ sub modTime {
     return $retTime, $remainder;
 }
 
-sub logTime {
-    my $taskName = shift;
-    my $taskTime = shift;
+sub timeBreakDown {
+    my $diffTime = shift;
 
-    # Task time is the time the task started.  We need to check the
-    # current time and calculate the duration for the log from that.
-
-    my $diffTime = time () - $taskTime;
-
-    my $days = 0;
+        my $days = 0;
     my $hours = 0;
     my $minutes = 0;
     my $seconds = 0;
@@ -141,6 +135,20 @@ sub logTime {
     if ( $diffTime > 0 ) {
 	$seconds = $diffTime;
     }
+
+    return $days, $hours, $minutes, $seconds;
+}
+
+sub logTime {
+    my $taskName = shift;
+    my $taskTime = shift;
+
+    # Task time is the time the task started.  We need to check the
+    # current time and calculate the duration for the log from that.
+
+    my $diffTime = time () - $taskTime;
+
+    my ( $days, $hours, $minutes, $seconds ) = timeBreakDown ( $diffTime );
     
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
 	localtime(time());
@@ -152,6 +160,8 @@ sub logTime {
 	"%04d-%02d-%02dT%02d:%02d:%02d\t%s\t%02d:%02d:%02d:%02d",
 	$year, $mon, $mday, $hour, $min, $sec, $taskName, $days, $hours,
 	$minutes, $seconds;
+
+    print "\nLogging: $logLine\n\n";
 
     my $logFile = sprintf "%s/%s-%04d:%02d:%02d", $logDir, $logPrefix,
 	$year, $mon, $mday;
@@ -284,39 +294,17 @@ sub printReport {
 
     printNormal ( "Total:", $grandTotal );
     printSpecial ( "Total:", $grandTotal );
+
+    print "\n";
 }
 
 sub printSpecial {
     my $task = shift;
     my $timeVal = shift;
 
-    my $diffTime = $timeVal;
+    my ( $days, $hours, $minutes, $seconds ) = timeBreakDown ( $timeVal );
 
-    my $days = 0;
-    my $hours = 0;
-    my $minutes = 0;
-    my $seconds = 0;
-
-    if ( $diffTime > 86400 ) {
-	# We have been on this task for more than 24 hours...(Arg!)
-	( $days, $diffTime ) = modTime ( $diffTime, 86400 );
-    }
-
-    if ( $diffTime > 3600 ) {
-	# We have been working for more than an hour.
-	( $hours, $diffTime ) = modTime ( $diffTime, 3600 );
-    }
-
-    if ( $diffTime > 60 ) {
-	# We have been working for more than a minute.
-	( $minutes, $diffTime ) = modTime ( $diffTime, 60 );
-    }
-
-    if ( $diffTime > 0 ) {
-	$seconds = $diffTime;
-    }
-
-    printf "%s\t%02dd %02dh %02dm %02ds\n", $task, $days, $hours,
+    printf "%15s -> %02dd %02dh %02dm %02ds\n", $task, $days, $hours,
 	$minutes, $seconds;
 }
 
@@ -326,7 +314,7 @@ sub printNormal {
 
     $timeVal = $timeVal / 3600;
 
-    printf "%s\t%s\n", $task, $timeVal;
+    printf "%15s -> %s\n", $task, $timeVal;
 }
 
 ### Main Routine ###
