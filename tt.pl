@@ -23,15 +23,16 @@ my $logPrefix;
 
 $usage =<<"EOF";
 Usage:
-    tt -c CONFIG [-t TASK] [-s LOGFILE] [-h]
+    tt -c CONFIG [-t TASK|-s LOGFILE|-l] [-h]
 Arguments:
     -c CONFIG    XML config file.
     [-t TASK]    Track a new task.
     [-s LOGFILE] Sum up time for tasks in a log file.
+    [-l]         List current task.
     -h           Print usage, and exit.
 EOF
     
-getopts ( 'hc:t:s:', $opts );
+getopts ( 'hlc:t:s:', $opts );
 
 if ( defined ( $opts->{h} ) ) {
     print $usage;
@@ -43,6 +44,26 @@ foreach my $op ( qw / c / ) {
 	warn "Missing required parameter: $op\n";
 	confess $usage;
     }
+}
+
+# Cheasy solution for mutually exclusive inputs.
+my $cheaseCount = 0;
+
+if ( defined ( $opts->{t} ) ) {
+    $cheaseCount++;
+}
+
+if ( defined ( $opts->{s} ) ) {
+    $cheaseCount++;
+}
+
+if ( defined ( $opts->{l} ) ) {
+    $cheaseCount++;
+}
+
+if ( $cheaseCount != 1 ) {
+    warn "Options -t, -s, and -l are mutually exclusive...There can be only one!\n";
+    confess $usage;
 }
 
 ### Subroutine Section ###
@@ -175,6 +196,34 @@ sub logTime {
 	or confess "Failed to close $logFile from append: $!\n";
 }
 
+sub printCurrentTask {
+
+    if ( -f $taskFile ) {
+	
+	open ( my $RD, '<', $taskFile )
+	    or confess "Failed to open $taskFile for read: $!\n";
+	
+	my $inJrec = '';
+	while ( my $line = <$RD> ) {
+	    $inJrec .= $line;
+	}
+	
+	close ( $RD )
+	    or confess "Failed to close $taskFile from read: $!\n";
+	
+	my $inRec = from_json ( $inJrec );
+
+	my $diffTime = time () - $inRec->{taskTime};
+
+	print "Currently working on:\n";
+	printNormal ( $inRec->{taskName}, $diffTime );
+	printSpecial ( $inRec->{taskName}, $diffTime );
+	
+    } else {
+	confess "Nothing is currently being track, so no task on which to report.\n";
+    }
+}
+
 sub trackTask {
 
     if ( -f $taskFile ) {
@@ -304,7 +353,7 @@ sub printSpecial {
 
     my ( $days, $hours, $minutes, $seconds ) = timeBreakDown ( $timeVal );
 
-    printf "%15s -> %02dd %02dh %02dm %02ds\n", $task, $days, $hours,
+    printf "%20s -> %02dd %02dh %02dm %02ds\n", $task, $days, $hours,
 	$minutes, $seconds;
 }
 
@@ -314,7 +363,7 @@ sub printNormal {
 
     $timeVal = $timeVal / 3600;
 
-    printf "%15s -> %s\n", $task, $timeVal;
+    printf "%20s -> %s\n", $task, $timeVal;
 }
 
 ### Main Routine ###
@@ -329,6 +378,11 @@ if ( defined ( $opts->{t} ) ) {
 if ( defined ( $opts->{s} ) ) {
     # Print the report for a specific log file.
     printReport ();
+}
+
+if ( defined ( $opts->{l} ) ) {
+    # Display current task with current time worked.
+    printCurrentTask ();
 }
 
 exit ( 0 );

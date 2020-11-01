@@ -1,9 +1,10 @@
 #!/usr/bin/bash
 
 function printPrompt {
-    echo "Current task: "
-    cat current.json
+    # List current task
+    ./tt.pl -c config.xml -l
     echo ""
+    # List time report for most recent time log.
     ./tt.pl -c config.xml -s $(ls logs | tail -n 1)
     echo "Enter task to track: "
 }
@@ -11,10 +12,13 @@ function printPrompt {
 printPrompt
 
 while read it ; do
-    echo ""
-    echo "Starting track on: $it"
+
+    if [ "$it" != "" ]; then
+	echo ""
+	echo "Starting track on: $it"
     
-    ./tt.pl -c config.xml -t $it
+	./tt.pl -c config.xml -t $it
+    fi
 
     printPrompt
 done
