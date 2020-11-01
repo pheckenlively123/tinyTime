@@ -112,7 +112,7 @@ sub modTime {
 sub timeBreakDown {
     my $diffTime = shift;
 
-        my $days = 0;
+    my $days = 0;
     my $hours = 0;
     my $minutes = 0;
     my $seconds = 0;
