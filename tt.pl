@@ -160,6 +160,22 @@ sub timeBreakDown {
     return $days, $hours, $minutes, $seconds;
 }
 
+sub makeDateTime {
+    my $inTime = shift;
+
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+	localtime( $inTime );
+    
+    $mon++;
+    $year += 1900;
+
+    my $rv = sprintf
+	"%04d-%02d-%02dT%02d:%02d:%02d", $year, $mon, $mday, $hour,
+	$min, $sec;
+
+    return $rv;
+}
+    
 sub logTime {
     my $taskName = shift;
     my $taskTime = shift;
@@ -167,19 +183,22 @@ sub logTime {
     # Task time is the time the task started.  We need to check the
     # current time and calculate the duration for the log from that.
 
+    my $startStamp = makeDateTime ( $taskTime );
+    my $endStamp = makeDateTime ( time () );
+    
     my $diffTime = time () - $taskTime;
 
     my ( $days, $hours, $minutes, $seconds ) = timeBreakDown ( $diffTime );
     
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
 	localtime(time());
-
+    
     $mon++;
     $year += 1900;
 
     my $logLine = sprintf
-	"%04d-%02d-%02dT%02d:%02d:%02d\t%s\t%02d:%02d:%02d:%02d",
-	$year, $mon, $mday, $hour, $min, $sec, $taskName, $days, $hours,
+	"%s to %s\t%s\t%02d:%02d:%02d:%02d",
+	$startStamp, $endStamp, $taskName, $days, $hours,
 	$minutes, $seconds;
 
     print "\nLogging: $logLine\n\n";
@@ -292,6 +311,8 @@ sub printReport {
     while ( my $line = <$RD> ) {
 	chomp ( $line );
 
+	# Intentionally throwing away the date information.  That part
+	# of the file is for the humans...
 	my ( $junk, $task, $timeRec ) = split ( /\t/, $line );
 	my ( $day, $hour, $min, $sec ) = split ( ':', $timeRec );
 
