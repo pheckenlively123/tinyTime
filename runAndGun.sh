@@ -5,7 +5,12 @@ function printPrompt {
     ./tt.pl -c config.xml -l
     echo ""
     # List time report for most recent time log.
-    ./tt.pl -c config.xml -s $(ls logs | tail -n 1)
+    logList=$(ls logs | tail -n 1)
+    if [ "$logList" == "" ]; then
+	echo "No logs yet.  :-P"
+    else
+	./tt.pl -c config.xml -s $(ls logs | tail -n 1)	
+    fi
     echo "Enter task to track: "
 }
 
