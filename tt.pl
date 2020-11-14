@@ -203,7 +203,7 @@ sub logTime {
 
     print "\nLogging: $logLine\n\n";
 
-    my $logFile = sprintf "%s/%s-%04d:%02d:%02d", $logDir, $logPrefix,
+    my $logFile = sprintf "%s/%s-%04d-%02d-%02d", $logDir, $logPrefix,
 	$year, $mon, $mday;
 
     open ( my $WT, '>>', $logFile )
