@@ -11,6 +11,7 @@
     <taskItem>^CRQ</taskItem>
     <taskItem>^PKE</taskItem>
     <taskItem>^PBI</taskItem>
+    <taskItem>^\w+\-\d+$</taskItem>
   </specialTasks>
   <!-- Tasks to exclude from time totals. -->
   <ignoreTasks>
